@@ -976,4 +976,104 @@ export default function StreamingPlatformV1() {
                         V1 file uploads are local preview only and are not permanent yet.
                       </p>
                     </div>
+                                        </div>
+                  </div>
+                </div>
+
+                <section className="space-y-4">
+                  <h2 className="text-2xl font-bold">Your Shows</h2>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {shows.map((show) => (
+                      <Card key={show.id} className="border-zinc-900 bg-zinc-950 text-white">
+                        <CardContent className="space-y-4 p-5">
+                          <div className="flex gap-4">
+                            <img
+                              src={show.cover}
+                              alt={show.title}
+                              className="h-28 w-24 rounded-xl object-cover"
+                            />
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-xl font-semibold">{show.title}</h3>
+
+                                {show.featured && (
+                                  <Badge className="bg-red-600 text-white hover:bg-red-600">
+                                    Featured
+                                  </Badge>
+                                )}
+
+                                <Badge
+                                  variant="outline"
+                                  className="border-zinc-700 text-zinc-300"
+                                >
+                                  {show.published ? "Published" : "Hidden"}
+                                </Badge>
+                              </div>
+
+                              <p className="line-clamp-3 text-sm text-zinc-400">
+                                {show.description}
+                              </p>
+
+                              <p className="text-xs text-zinc-500">
+                                {show.seasons.length} season(s) •{" "}
+                                {show.seasons.reduce(
+                                  (sum, season) => sum + season.episodes.length,
+                                  0
+                                )}{" "}
+                                episode(s)
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              variant="secondary"
+                              className="rounded-full bg-zinc-800 text-white hover:bg-zinc-700"
+                              onClick={() => togglePublished(show.id)}
+                            >
+                              {show.published ? "Unpublish" : "Publish"}
+                            </Button>
+
+                            <Button
+                              variant="secondary"
+                              className="rounded-full bg-zinc-800 text-white hover:bg-zinc-700"
+                              onClick={() => setFeatured(show.id)}
+                            >
+                              Set Featured
+                            </Button>
+
+                            <Button
+                              variant="secondary"
+                              className="rounded-full bg-zinc-800 text-white hover:bg-zinc-700"
+                              onClick={() => {
+                                setMode("user");
+                                setSelectedShowId(show.id);
+                                setView("show");
+                              }}
+                            >
+                              Preview
+                            </Button>
+
+                            <Button
+                              variant="destructive"
+                              className="rounded-full"
+                              onClick={() => deleteShow(show.id)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Show
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </section>
+              </CardContent>
+            </Card>
+          </section>
+        </main>
+      )}
+    </div>
+  );
+}
                 
