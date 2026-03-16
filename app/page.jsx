@@ -1,10 +1,32 @@
-import React, { useMemo, useState } from "react";
-import { Play, Plus, Edit3, MonitorPlay, Tv, Eye, Upload, ChevronRight, ChevronDown, Search, Save, Film } from "lucide-react";
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Play,
+  Plus,
+  Edit3,
+  MonitorPlay,
+  Eye,
+  Upload,
+  ChevronRight,
+  ChevronDown,
+  Search,
+  Save,
+  Film,
+  Lock,
+  Shield,
+  LogOut,
+  Trash2,
+  Captions,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+
+const VIEWER_CODE = "famwatch2026";
+const CREATOR_CODE = "amancreator2026";
 
 const starterShows = [
   {
@@ -33,6 +55,7 @@ const starterShows = [
             thumbnail:
               "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=900&auto=format&fit=crop",
             videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+            subtitleUrl: "",
             published: true,
           },
           {
@@ -44,6 +67,7 @@ const starterShows = [
             thumbnail:
               "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=900&auto=format&fit=crop",
             videoUrl: "https://www.w3schools.com/html/movie.mp4",
+            subtitleUrl: "",
             published: true,
           },
         ],
@@ -76,6 +100,7 @@ const starterShows = [
             thumbnail:
               "https://images.unsplash.com/photo-1513258496099-48168024aec0?q=80&w=900&auto=format&fit=crop",
             videoUrl: "https://www.w3schools.com/html/mov_bbb.mp4",
+            subtitleUrl: "",
             published: true,
           },
         ],
@@ -103,7 +128,46 @@ const emptyEpisode = {
   duration: "",
   thumbnail: "",
   videoUrl: "",
+  subtitleUrl: "",
+  videoFileName: "",
+  subtitleFileName: "",
 };
+
+function IntroAnimation({ onFinish }) {
+  useEffect(() => {
+    const timer = setTimeout(onFinish, 2400);
+    return () => clearTimeout(timer);
+  }, [onFinish]);
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-black">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(229,9,20,0.22),transparent_42%),linear-gradient(to_right,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:100%_100%,60px_100%] opacity-80" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-black/40 to-black" />
+      <div className="relative h-44 w-28">
+        <div className="absolute left-0 top-0 h-full w-5 rounded-sm bg-red-700 shadow-[0_0_40px_rgba(229,9,20,0.4)] animate-[leftBar_1.05s_ease-out_forwards]" />
+        <div className="absolute left-1/2 top-0 h-full w-5 -translate-x-1/2 skew-x-[24deg] rounded-sm bg-red-600 shadow-[0_0_50px_rgba(229,9,20,0.65)] animate-[midBar_1.15s_ease-out_forwards]" />
+        <div className="absolute right-0 top-0 h-full w-5 rounded-sm bg-red-700 shadow-[0_0_40px_rgba(229,9,20,0.4)] animate-[rightBar_1.05s_ease-out_forwards]" />
+      </div>
+      <style jsx>{`
+        @keyframes leftBar {
+          0% { transform: translateY(22px) scaleY(0.2); opacity: 0; }
+          35% { opacity: 1; }
+          100% { transform: translateY(0) scaleY(1); opacity: 1; }
+        }
+        @keyframes midBar {
+          0% { transform: translateX(-50%) scaleY(0.2) skewX(24deg); opacity: 0; }
+          40% { opacity: 1; }
+          100% { transform: translateX(-50%) scaleY(1) skewX(24deg); opacity: 1; }
+        }
+        @keyframes rightBar {
+          0% { transform: translateY(-22px) scaleY(0.2); opacity: 0; }
+          35% { opacity: 1; }
+          100% { transform: translateY(0) scaleY(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function ShowRow({ title, shows, onOpenShow, onQuickPlay }) {
   if (!shows.length) return null;
@@ -112,9 +176,6 @@ function ShowRow({ title, shows, onOpenShow, onQuickPlay }) {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-white">{title}</h2>
-        <Button variant="ghost" className="text-zinc-300 hover:text-white">
-          View all <ChevronRight className="ml-1 h-4 w-4" />
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -183,6 +244,11 @@ function EpisodeCard({ episode, onWatch }) {
 }
 
 export default function StreamingPlatformV1() {
+  const [showIntro, setShowIntro] = useState(true);
+  const [accessRole, setAccessRole] = useState(null);
+  const [accessCode, setAccessCode] = useState("");
+  const [accessError, setAccessError] = useState("");
+
   const [mode, setMode] = useState("user");
   const [view, setView] = useState("home");
   const [shows, setShows] = useState(starterShows);
@@ -199,10 +265,27 @@ export default function StreamingPlatformV1() {
   const [creatorSelectedShowId, setCreatorSelectedShowId] = useState(starterShows[0].id);
   const [creatorSelectedSeasonId, setCreatorSelectedSeasonId] = useState(starterShows[0].seasons[0].id);
 
-  const publishedShows = useMemo(
-    () => shows.filter((show) => show.published),
-    [shows]
-  );
+  const handleEpisodeVideoFile = (file) => {
+    if (!file) return;
+    const fileUrl = URL.createObjectURL(file);
+    setEpisodeForm((prev) => ({
+      ...prev,
+      videoUrl: fileUrl,
+      videoFileName: file.name,
+    }));
+  };
+
+  const handleEpisodeSubtitleFile = (file) => {
+    if (!file) return;
+    const fileUrl = URL.createObjectURL(file);
+    setEpisodeForm((prev) => ({
+      ...prev,
+      subtitleUrl: fileUrl,
+      subtitleFileName: file.name,
+    }));
+  };
+
+  const publishedShows = useMemo(() => shows.filter((show) => show.published), [shows]);
 
   const filteredShows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -225,11 +308,41 @@ export default function StreamingPlatformV1() {
   );
 
   const creatorSelectedSeason = useMemo(
-    () => creatorSelectedShow?.seasons.find((season) => season.id === creatorSelectedSeasonId) || creatorSelectedShow?.seasons[0],
+    () =>
+      creatorSelectedShow?.seasons.find((season) => season.id === creatorSelectedSeasonId) ||
+      creatorSelectedShow?.seasons[0],
     [creatorSelectedShow, creatorSelectedSeasonId]
   );
 
   const featuredShow = publishedShows.find((show) => show.featured) || publishedShows[0];
+
+  const handleAccessSubmit = () => {
+    if (accessCode === CREATOR_CODE) {
+      setAccessRole("creator");
+      setMode("creator");
+      setView("creator");
+      setAccessError("");
+      return;
+    }
+
+    if (accessCode === VIEWER_CODE) {
+      setAccessRole("viewer");
+      setMode("user");
+      setView("home");
+      setAccessError("");
+      return;
+    }
+
+    setAccessError("Wrong code. Try again.");
+  };
+
+  const logout = () => {
+    setAccessRole(null);
+    setAccessCode("");
+    setAccessError("");
+    setMode("user");
+    setView("home");
+  };
 
   const openShow = (show) => {
     setSelectedShowId(show.id);
@@ -264,9 +377,7 @@ export default function StreamingPlatformV1() {
     const fallbackCover =
       showForm.cover ||
       "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=900&auto=format&fit=crop";
-    const fallbackBanner =
-      showForm.banner ||
-      fallbackCover;
+    const fallbackBanner = showForm.banner || fallbackCover;
 
     const newShow = {
       id: newShowId,
@@ -281,6 +392,7 @@ export default function StreamingPlatformV1() {
 
     setShows((prev) => [...prev, newShow]);
     setCreatorSelectedShowId(newShowId);
+    setCreatorSelectedSeasonId("");
     setShowForm(emptyShow);
   };
 
@@ -323,6 +435,7 @@ export default function StreamingPlatformV1() {
         episodeForm.thumbnail ||
         "https://images.unsplash.com/photo-1485846234645-a62644f84728?q=80&w=900&auto=format&fit=crop",
       videoUrl: episodeForm.videoUrl || "https://www.w3schools.com/html/mov_bbb.mp4",
+      subtitleUrl: episodeForm.subtitleUrl || "",
       published: true,
     };
 
@@ -354,52 +467,127 @@ export default function StreamingPlatformV1() {
   };
 
   const setFeatured = (showId) => {
-    setShows((prev) =>
-      prev.map((show) => ({ ...show, featured: show.id === showId }))
-    );
+    setShows((prev) => prev.map((show) => ({ ...show, featured: show.id === showId })));
   };
 
-  return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-50 border-b border-zinc-900 bg-black/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-red-600 p-2 shadow-lg shadow-red-950/40">
-              <Tv className="h-6 w-6" />
+  const deleteShow = (showId) => {
+    setShows((prev) => {
+      if (prev.length <= 1) return prev;
+      const nextShows = prev.filter((show) => show.id !== showId);
+
+      if (selectedShowId === showId) {
+        setSelectedShowId(nextShows[0].id);
+        const nextEpisode = nextShows[0]?.seasons?.[0]?.episodes?.[0];
+        if (nextEpisode) setSelectedEpisode(nextEpisode);
+      }
+
+      if (creatorSelectedShowId === showId) {
+        setCreatorSelectedShowId(nextShows[0].id);
+        setCreatorSelectedSeasonId(nextShows[0]?.seasons?.[0]?.id || "");
+      }
+
+      return nextShows;
+    });
+  };
+
+  if (showIntro) {
+    return <IntroAnimation onFinish={() => setShowIntro(false)} />;
+  }
+
+  if (!accessRole) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#141414] px-4 text-white">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.045)_1px,transparent_1px)] bg-[size:60px_100%] opacity-25" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(229,9,20,0.14),transparent_35%)]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-transparent to-black/80" />
+        <div className="relative z-10 w-full max-w-md rounded-[2rem] border border-zinc-800/80 bg-black/80 p-8 shadow-2xl shadow-black/60 backdrop-blur-sm">
+          <div className="mb-8 space-y-3">
+            <h1 className="text-5xl font-black tracking-[0.28em] text-red-600">SMBAFLEX</h1>
+            <p className="text-sm text-zinc-400">Invite-only streaming access</p>
+          </div>
+
+          <div className="mb-6 space-y-3 rounded-2xl border border-zinc-800 bg-[#141414] p-4 text-sm text-zinc-300">
+            <div className="flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Viewer code = watch access
             </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">SeriesHub V1</h1>
-              <p className="text-xs text-zinc-400">Netflix-style streaming platform prototype</p>
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4" /> Creator code = dashboard access
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-1">
-            <Button
-              variant={mode === "user" ? "default" : "ghost"}
-              className="rounded-xl"
-              onClick={() => {
-                setMode("user");
-                setView("home");
-              }}
-            >
-              <Eye className="mr-2 h-4 w-4" /> User Mode
+          <div className="space-y-4">
+            <Input
+              type="password"
+              placeholder="Enter access code"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAccessSubmit()}
+              className="h-12 border-zinc-800 bg-zinc-900 text-white"
+            />
+            {accessError && <p className="text-sm text-red-400">{accessError}</p>}
+            <Button className="h-12 w-full rounded-xl" onClick={handleAccessSubmit}>
+              Enter
             </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#141414] text-white">
+      <header className="sticky top-0 z-50 border-b border-zinc-900 bg-[#141414]/85 backdrop-blur">
+        <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-full bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_100%] opacity-15" />
+          <div className="relative z-10 flex items-center gap-3">
+            <h1 className="text-3xl font-black tracking-[0.22em] text-red-600">SMBAFLEX</h1>
+            <div>
+              <p className="text-xs text-zinc-400">
+                {accessRole === "creator" ? "Creator access" : "Viewer access"}
+              </p>
+            </div>
+          </div>
+
+          <div className="relative z-10 flex items-center gap-2">
+            {accessRole === "creator" && (
+              <div className="flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-1">
+                <Button
+                  variant={mode === "user" ? "default" : "ghost"}
+                  className="rounded-xl"
+                  onClick={() => {
+                    setMode("user");
+                    setView("home");
+                  }}
+                >
+                  <Eye className="mr-2 h-4 w-4" /> User Mode
+                </Button>
+                <Button
+                  variant={mode === "creator" ? "default" : "ghost"}
+                  className="rounded-xl"
+                  onClick={() => {
+                    setMode("creator");
+                    setView("creator");
+                  }}
+                >
+                  <Edit3 className="mr-2 h-4 w-4" /> Creator Mode
+                </Button>
+              </div>
+            )}
+
             <Button
-              variant={mode === "creator" ? "default" : "ghost"}
-              className="rounded-xl"
-              onClick={() => {
-                setMode("creator");
-                setView("creator");
-              }}
+              variant="secondary"
+              className="rounded-xl bg-zinc-900 text-white hover:bg-zinc-800"
+              onClick={logout}
             >
-              <Edit3 className="mr-2 h-4 w-4" /> Creator Mode
+              <LogOut className="mr-2 h-4 w-4" /> Log out
             </Button>
           </div>
         </div>
       </header>
 
       {mode === "user" && (
-        <main className="mx-auto max-w-7xl space-y-10 px-4 py-8 sm:px-6 lg:px-8">
+        <main className="relative mx-auto max-w-7xl space-y-10 px-4 py-8 sm:px-6 lg:px-8">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_100%] opacity-20" />
           {view === "home" && featuredShow && (
             <>
               <section className="relative overflow-hidden rounded-[2rem] border border-zinc-900">
@@ -462,7 +650,11 @@ export default function StreamingPlatformV1() {
                 <div className="absolute inset-0 bg-gradient-to-r from-black via-black/65 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                 <div className="absolute bottom-0 left-0 max-w-2xl space-y-4 p-8">
-                  <Button variant="secondary" className="w-fit rounded-full bg-zinc-800 text-white" onClick={() => setView("home")}>
+                  <Button
+                    variant="secondary"
+                    className="w-fit rounded-full bg-zinc-800 text-white"
+                    onClick={() => setView("home")}
+                  >
                     Back Home
                   </Button>
                   <h2 className="text-4xl font-black">{selectedShow.title}</h2>
@@ -484,7 +676,11 @@ export default function StreamingPlatformV1() {
                           <h3 className="text-2xl font-bold">{season.title}</h3>
                           <p className="text-sm text-zinc-400">{visibleEpisodes.length} episode(s)</p>
                         </div>
-                        {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                        {isOpen ? (
+                          <ChevronDown className="h-5 w-5" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5" />
+                        )}
                       </button>
 
                       {isOpen && (
@@ -503,12 +699,26 @@ export default function StreamingPlatformV1() {
 
           {view === "watch" && selectedEpisode && selectedShow && (
             <section className="space-y-6">
-              <Button variant="secondary" className="rounded-full bg-zinc-800 text-white" onClick={() => setView("show")}>
+              <Button
+                variant="secondary"
+                className="rounded-full bg-zinc-800 text-white"
+                onClick={() => setView("show")}
+              >
                 Back to Show
               </Button>
 
               <div className="overflow-hidden rounded-[2rem] border border-zinc-900 bg-zinc-950">
-                <video className="aspect-video w-full bg-black" controls src={selectedEpisode.videoUrl} />
+                <video className="aspect-video w-full bg-[#141414]" controls src={selectedEpisode.videoUrl}>
+                  {selectedEpisode.subtitleUrl && (
+                    <track
+                      kind="subtitles"
+                      src={selectedEpisode.subtitleUrl}
+                      srcLang="en"
+                      label="English"
+                      default
+                    />
+                  )}
+                </video>
                 <div className="space-y-4 p-6">
                   <div className="flex flex-wrap items-center gap-3">
                     <Badge className="bg-red-600 text-white hover:bg-red-600">Now Playing</Badge>
@@ -537,8 +747,9 @@ export default function StreamingPlatformV1() {
         </main>
       )}
 
-      {mode === "creator" && (
-        <main className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      {mode === "creator" && accessRole === "creator" && (
+        <main className="relative mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+          <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_100%] opacity-20" />
           <section className="grid gap-6 lg:grid-cols-3">
             <Card className="border-zinc-900 bg-zinc-950 text-white lg:col-span-1">
               <CardContent className="space-y-4 p-6">
@@ -588,9 +799,39 @@ export default function StreamingPlatformV1() {
                   </Badge>
                 </div>
 
+                <div className="rounded-2xl border border-zinc-800 bg-[#141414] p-4 text-sm text-zinc-300">
+                  <p>
+                    Viewer code: <span className="font-semibold text-white">{VIEWER_CODE}</span>
+                  </p>
+                  <p>
+                    Creator code: <span className="font-semibold text-white">{CREATOR_CODE}</span>
+                  </p>
+                  <p className="mt-2 text-zinc-500">
+                    These are hardcoded for V1. Next we can move them into Supabase so you can change them from a settings page.
+                  </p>
+                  <p className="mt-2 text-zinc-500">
+                    URL video links stay inside the website as long as they are direct video file URLs like .mp4, .webm, or streaming file URLs.
+                  </p>
+                  <p className="mt-2 text-zinc-500">
+                    File uploads in this V1 are local preview only and disappear on refresh. Permanent storage needs a backend later.
+                  </p>
+                  <p className="mt-2 text-zinc-500">
+                    Subtitles work here if you add a .vtt subtitle URL or upload a .vtt file.
+                  </p>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm text-zinc-400">Select Show</label>
+                    <div className="mb-2 flex gap-2">
+                      <Button
+                        variant="destructive"
+                        className="rounded-full"
+                        onClick={() => deleteShow(creatorSelectedShowId)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Selected Show
+                      </Button>
+                    </div>
                     <select
                       value={creatorSelectedShowId}
                       onChange={(e) => {
@@ -689,64 +930,50 @@ export default function StreamingPlatformV1() {
                       <Input
                         placeholder="Video URL"
                         value={episodeForm.videoUrl}
-                        onChange={(e) => setEpisodeForm((prev) => ({ ...prev, videoUrl: e.target.value }))}
+                        onChange={(e) =>
+                          setEpisodeForm((prev) => ({ ...prev, videoUrl: e.target.value, videoFileName: "" }))
+                        }
                         className="border-zinc-800 bg-zinc-900"
                       />
+                      <div className="space-y-2 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/50 p-3">
+                        <label className="block text-sm text-zinc-400">Or upload video file</label>
+                        <Input
+                          type="file"
+                          accept="video/*"
+                          onChange={(e) => handleEpisodeVideoFile(e.target.files?.[0])}
+                          className="border-zinc-800 bg-zinc-900 file:mr-3 file:rounded-md file:border-0 file:bg-red-600 file:px-3 file:py-1 file:text-white"
+                        />
+                        {episodeForm.videoFileName && (
+                          <p className="text-xs text-zinc-400">Loaded file: {episodeForm.videoFileName}</p>
+                        )}
+                      </div>
+                      <Input
+                        placeholder="Subtitle URL (.vtt)"
+                        value={episodeForm.subtitleUrl}
+                        onChange={(e) =>
+                          setEpisodeForm((prev) => ({ ...prev, subtitleUrl: e.target.value, subtitleFileName: "" }))
+                        }
+                        className="border-zinc-800 bg-zinc-900"
+                      />
+                      <div className="space-y-2 rounded-xl border border-dashed border-zinc-700 bg-zinc-900/50 p-3">
+                        <label className="flex items-center gap-2 text-sm text-zinc-400">
+                          <Captions className="h-4 w-4" /> Or upload subtitle file (.vtt)
+                        </label>
+                        <Input
+                          type="file"
+                          accept=".vtt,text/vtt"
+                          onChange={(e) => handleEpisodeSubtitleFile(e.target.files?.[0])}
+                          className="border-zinc-800 bg-zinc-900 file:mr-3 file:rounded-md file:border-0 file:bg-red-600 file:px-3 file:py-1 file:text-white"
+                        />
+                        {episodeForm.subtitleFileName && (
+                          <p className="text-xs text-zinc-400">Loaded subtitles: {episodeForm.subtitleFileName}</p>
+                        )}
+                      </div>
                       <Button className="w-full rounded-xl" onClick={addEpisode}>
                         <Save className="mr-2 h-4 w-4" /> Save Episode
                       </Button>
+                      <p className="text-xs text-zinc-500">
+                        V1 file uploads are local preview only and are not permanent yet.
+                      </p>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-2xl font-bold">Your Shows</h2>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {shows.map((show) => (
-                <Card key={show.id} className="border-zinc-900 bg-zinc-950 text-white">
-                  <CardContent className="space-y-4 p-5">
-                    <div className="flex gap-4">
-                      <img src={show.cover} alt={show.title} className="h-28 w-24 rounded-xl object-cover" />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-xl font-semibold">{show.title}</h3>
-                          {show.featured && <Badge className="bg-red-600 text-white hover:bg-red-600">Featured</Badge>}
-                          <Badge variant="outline" className="border-zinc-700 text-zinc-300">
-                            {show.published ? "Published" : "Hidden"}
-                          </Badge>
-                        </div>
-                        <p className="line-clamp-3 text-sm text-zinc-400">{show.description}</p>
-                        <p className="text-xs text-zinc-500">
-                          {show.seasons.length} season(s) • {show.seasons.reduce((sum, season) => sum + season.episodes.length, 0)} episode(s)
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="secondary" className="rounded-full bg-zinc-800 text-white hover:bg-zinc-700" onClick={() => togglePublished(show.id)}>
-                        {show.published ? "Unpublish" : "Publish"}
-                      </Button>
-                      <Button variant="secondary" className="rounded-full bg-zinc-800 text-white hover:bg-zinc-700" onClick={() => setFeatured(show.id)}>
-                        Set Featured
-                      </Button>
-                      <Button variant="secondary" className="rounded-full bg-zinc-800 text-white hover:bg-zinc-700" onClick={() => {
-                        setMode("user");
-                        setSelectedShowId(show.id);
-                        setView("show");
-                      }}>
-                        Preview
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-        </main>
-      )}
-    </div>
-  );
-}
+                
